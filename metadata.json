@@ -1,0 +1,8 @@
+{
+  "name": "VÒNG QUAY KÌ DIỆU- THẦY NGUYỄN ĐỨC DUY",
+  "description": "Ứng dụng vòng quay gọi tên học sinh chuyên nghiệp với tính năng tải ảnh chân dung hàng loạt, nhạc nền tùy chỉnh và giao diện lung linh.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
