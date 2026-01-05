@@ -5,6 +5,10 @@ import Wheel from './components/Wheel';
 import ControlPanel from './components/ControlPanel';
 import WinnerModal from './components/WinnerModal';
 
+// 🎵 Tải âm thanh từ biến môi trường
+const SOUND_QUAY_URL = import.meta.env.VITE_SOUND_QUAY || 'https://tiengdong.com/tieng-quay-banh-xe-may-man-chiec-non-ky-dieu.mp3';
+const SOUND_WIN_URL = import.meta.env.VITE_SOUND_WIN || 'https://tiengdong.com/tieng-chuc-mung.mp3';
+
 const STORAGE_KEY = 'lucky_wheel_students';
 const TEXT_STORAGE_KEY = 'lucky_wheel_center_text';
 
@@ -17,14 +21,99 @@ const App: React.FC = () => {
   const [praiseMessage, setPraiseMessage] = useState("");
 
   const spinBgmRef = useRef<HTMLAudioElement | null>(null);
+  const winBgmRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    // 🎵 Sửa URL nhạc — xóa tham số utm và dấu cách
-    const audioUrl = 'https://tiengdong.com/tieng-quay-banh-xe-may-man-chiec-non-ky-dieu.mp3';
-    spinBgmRef.current = new Audio(audioUrl);
-    spinBgmRef.current.loop = true;
-    spinBgmRef.current.volume = 0.5;
+    // 🎵 Tải âm thanh nền
+    const audioQuay = new Audio(SOUND_QUAY_URL);
+    audioQuay.loop = true;
+    audioQuay.volume = 0.5;
+    audioQuay.preload = 'auto';
 
+    // 🎵 Tải âm thanh khi trúng thưởng
+    const audioWin = new Audio(SOUND_WIN_URL);
+    audioWin.volume = 0.7;
+
+    // Gắn vào useRef để dùng trong toàn bộ ứng dụng
+    spinBgmRef.current = audioQuay;
+    winBgmRef.current = audioWin;
+
+    // Khi quay bắt đầu
+    const handleSpinStart = () => {
+      if (audioQuay.readyState === 4) {
+        audioQuay.currentTime = 0;
+        audioQuay.play().catch(() => {});
+      }
+    };
+
+    // Khi quay xong
+    const handleSpinEnd = (winningId: string) => {
+      if (audioQuay) {
+        audioQuay.pause();
+      }
+
+      const winStudent = students.find(s => s.id === winningId);
+      if (winStudent) {
+        setWinner(winStudent);
+        setRemainingStudents(prev => prev.filter(s => s.id !== winningId));
+
+        const praises = [
+          `Chúc mừng ${winStudent.name}! Em đã rất nỗ lực, xứng đáng là ngôi sao sáng của lớp!`,
+          `Tuyệt vời, ${winStudent.name}! Em chính là chiến binh kiến thức hôm nay!`,
+          `${winStudent.name} ơi, em thật sự là bạn nhỏ chăm chỉ và xuất sắc!`,
+          `Xin chúc mừng ${winStudent.name} — tay bút tài hoa của lớp mình!`,
+          `${winStudent.name} đã thể hiện tinh thần học tập tuyệt vời!`
+        ];
+        const randomPraise = praises[Math.floor(Math.random() * praises.length)];
+        setPraiseMessage(randomPraise);
+
+        // ✅ Phát âm thanh khi trúng thưởng
+        if (winBgmRef.current && winBgmRef.current.readyState === 4) {
+          winBgmRef.current.currentTime = 0;
+          winBgmRef.current.play().catch(() => {});
+        }
+      }
+
+      setIsSpinning(false);
+    };
+
+    // Gắn sự kiện vào nút quay
+    const handleSpinStart = () => {
+      if (remainingStudents.length === 0) {
+        alert("Đã hết học sinh để quay! Vui lòng đặt lại danh sách.");
+        return;
+      }
+      setWinner(null);
+      setPraiseMessage("");
+      setIsSpinning(true);
+
+      if (spinBgmRef.current && spinBgmRef.current.readyState === 4) {
+        spinBgmRef.current.currentTime = 0;
+        spinBgmRef.current.play().catch(() => {});
+      }
+    };
+
+    // Gắn sự kiện vào nút làm mới
+    const resetWheel = () => {
+      setRemainingStudents(students);
+      setWinner(null);
+      setIsSpinning(false);
+    };
+
+    // Xóa âm thanh khi component unmount
+    return () => {
+      if (audioQuay) {
+        audioQuay.pause();
+        audioQuay.src = '';
+      }
+      if (audioWin) {
+        audioWin.pause();
+        audioWin.src = '';
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const savedStudents = localStorage.getItem(STORAGE_KEY);
     if (savedStudents) {
       try {
@@ -35,7 +124,6 @@ const App: React.FC = () => {
         console.error("Lỗi đọc dữ liệu học sinh");
       }
     } else {
-      // 🧍 Danh sách demo — sửa dấu cách trong URL ảnh
       const demo: Student[] = Array.from({ length: 6 }).map((_, i) => ({
         id: `demo-${i}`,
         name: `Học sinh ${i + 1}`,
@@ -58,52 +146,6 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem(TEXT_STORAGE_KEY, wheelCenterText);
   }, [wheelCenterText]);
-
-  const handleSpinStart = () => {
-    if (remainingStudents.length === 0) {
-      alert("Đã hết học sinh để quay! Vui lòng đặt lại danh sách.");
-      return;
-    }
-    setWinner(null);
-    setPraiseMessage("");
-    setIsSpinning(true);
-    if (spinBgmRef.current) {
-      spinBgmRef.current.currentTime = 0;
-      spinBgmRef.current.play().catch(() => {});
-    }
-  };
-
-  // 🔁 Hàm xử lý kết thúc quay — KHÔNG DÙNG AI
-  const handleSpinEnd = (winningId: string) => {
-    if (spinBgmRef.current) {
-      spinBgmRef.current.pause();
-    }
-
-    const winStudent = students.find(s => s.id === winningId);
-    if (winStudent) {
-      setWinner(winStudent);
-      setRemainingStudents(prev => prev.filter(s => s.id !== winningId));
-
-      const praises = [
-        `Chúc mừng ${winStudent.name}! Em đã rất nỗ lực, xứng đáng là ngôi sao sáng của lớp!`,
-        `Tuyệt vời, ${winStudent.name}! Em chính là chiến binh kiến thức hôm nay!`,
-        `${winStudent.name} ơi, em thật sự là bạn nhỏ chăm chỉ và xuất sắc!`,
-        `Xin chúc mừng ${winStudent.name} — tay bút tài hoa của lớp mình!`,
-        `${winStudent.name} đã thể hiện tinh thần học tập tuyệt vời!`
-      ];
-      const randomPraise = praises[Math.floor(Math.random() * praises.length)];
-      setPraiseMessage(randomPraise);
-    }
-
-    // ✅ ĐẢM BẢO LUÔN TẮT TRẠNG THÁI QUAY
-    setIsSpinning(false);
-  };
-
-  const resetWheel = () => {
-    setRemainingStudents(students);
-    setWinner(null);
-    setIsSpinning(false);
-  };
 
   return (
     <div className="relative w-full h-screen overflow-hidden text-white flex flex-col md:flex-row font-sans">
