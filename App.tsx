@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Student } from './types';
 import StarryBackground from './components/StarryBackground';
 import Wheel from './components/Wheel';
 import ControlPanel from './components/ControlPanel';
 import WinnerModal from './components/WinnerModal';
-import { GoogleGenAI } from "@google/genai";
 
 const STORAGE_KEY = 'lucky_wheel_students';
 const TEXT_STORAGE_KEY = 'lucky_wheel_center_text';
@@ -17,11 +15,16 @@ const App: React.FC = () => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [winner, setWinner] = useState<Student | null>(null);
   const [praiseMessage, setPraiseMessage] = useState("");
-  const [isAiLoading, setIsAiLoading] = useState(false);
 
   const spinBgmRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
+    // 🎵 Sửa URL nhạc — xóa tham số utm và dấu cách
+    const audioUrl = 'https://tiengdong.com/tieng-quay-banh-xe-may-man-chiec-non-ky-dieu.mp3';
+    spinBgmRef.current = new Audio(audioUrl);
+    spinBgmRef.current.loop = true;
+    spinBgmRef.current.volume = 0.5;
+
     const savedStudents = localStorage.getItem(STORAGE_KEY);
     if (savedStudents) {
       try {
@@ -32,10 +35,11 @@ const App: React.FC = () => {
         console.error("Lỗi đọc dữ liệu học sinh");
       }
     } else {
+      // 🧍 Danh sách demo — sửa dấu cách trong URL ảnh
       const demo: Student[] = Array.from({ length: 6 }).map((_, i) => ({
         id: `demo-${i}`,
         name: `Học sinh ${i + 1}`,
-        photoUrl: `https://picsum.photos/seed/${i + 100}/200/200`
+        photoUrl: `https://picsum.photos/seed/${i + 100}/200/200`,
       }));
       setStudents(demo);
       setRemainingStudents(demo);
@@ -45,10 +49,6 @@ const App: React.FC = () => {
     if (savedText) {
       setWheelCenterText(savedText);
     }
-
-    spinBgmRef.current = new Audio('https://tiengdong.com/tieng-quay-banh-xe-may-man-chiec-non-ky-dieu?utm_source=copylink&utm_medium=share_button&utm_campaign=shared_from_tiengdong.com&utm_content=vi-12h03-30-12-2025.mp3');
-    spinBgmRef.current.loop = true;
-    spinBgmRef.current.volume = 0.5;
   }, []);
 
   useEffect(() => {
@@ -64,18 +64,17 @@ const App: React.FC = () => {
       alert("Đã hết học sinh để quay! Vui lòng đặt lại danh sách.");
       return;
     }
-    
     setWinner(null);
     setPraiseMessage("");
     setIsSpinning(true);
-    
     if (spinBgmRef.current) {
       spinBgmRef.current.currentTime = 0;
       spinBgmRef.current.play().catch(() => {});
     }
   };
 
-  const handleSpinEnd = async (winningId: string) => {
+  // 🔁 Hàm xử lý kết thúc quay — KHÔNG DÙNG AI
+  const handleSpinEnd = (winningId: string) => {
     if (spinBgmRef.current) {
       spinBgmRef.current.pause();
     }
@@ -84,37 +83,19 @@ const App: React.FC = () => {
     if (winStudent) {
       setWinner(winStudent);
       setRemainingStudents(prev => prev.filter(s => s.id !== winningId));
-      
-      setIsAiLoading(true);
-      try {
-        const apiKey = typeof process !== 'undefined' && process.env ? process.env.API_KEY : '';
-        
-        if (!apiKey) {
-           setPraiseMessage(`Chúc mừng ${winStudent.name}! Em đã rất nỗ lực, xứng đáng là ngôi sao sáng của lớp mình hôm nay!`);
-           return;
-        }
 
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Bạn là một giáo viên chủ nhiệm lớp 4 hiền hậu và tâm lý. 
-          Hãy viết một câu khen ngợi/chúc mừng ngắn (dưới 20 từ) cho học sinh tên ${winStudent.name} vừa trúng thưởng vòng quay. 
-          Lời khen cần bám sát tinh thần Thông tư 27/BGD: tập trung khích lệ sự tiến bộ, tinh thần học tập tích cực và nỗ lực cá nhân. 
-          Ngôn ngữ phải gần gũi, dễ thương, tràn đầy tình cảm. 
-          QUY TẮC QUAN TRỌNG: Sử dụng đại từ "em" để xưng hô với học sinh, TUYỆT ĐỐI KHÔNG sử dụng từ "con".
-          Dùng các danh xưng như 'ngôi sao nhỏ', 'bạn nhỏ chăm chỉ', 'tay bút tài hoa', 'nhà vô địch nhí', 'chiến binh kiến thức'. 
-          Tuyệt đối KHÔNG dùng các từ như 'phù thủy', 'phép thuật' hay các danh xưng quá xa rời thực tế. 
-          Trả lời bằng tiếng Việt.`;
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: prompt,
-        });
-        setPraiseMessage(response.text || `Chúc mừng ${winStudent.name}! Sự cố gắng của em hôm nay chính là niềm tự hào của cả lớp!`);
-      } catch (e) {
-        setPraiseMessage(`Chúc mừng ${winStudent.name}! Em đã có một ngày học tập thật tuyệt vời và đầy nỗ lực!`);
-      } finally {
-        setIsAiLoading(false);
-      }
+      const praises = [
+        `Chúc mừng ${winStudent.name}! Em đã rất nỗ lực, xứng đáng là ngôi sao sáng của lớp!`,
+        `Tuyệt vời, ${winStudent.name}! Em chính là chiến binh kiến thức hôm nay!`,
+        `${winStudent.name} ơi, em thật sự là bạn nhỏ chăm chỉ và xuất sắc!`,
+        `Xin chúc mừng ${winStudent.name} — tay bút tài hoa của lớp mình!`,
+        `${winStudent.name} đã thể hiện tinh thần học tập tuyệt vời!`
+      ];
+      const randomPraise = praises[Math.floor(Math.random() * praises.length)];
+      setPraiseMessage(randomPraise);
     }
+
+    // ✅ ĐẢM BẢO LUÔN TẮT TRẠNG THÁI QUAY
     setIsSpinning(false);
   };
 
@@ -211,13 +192,13 @@ const App: React.FC = () => {
         <WinnerModal 
           student={winner} 
           praise={praiseMessage} 
-          isLoading={isAiLoading}
+          isLoading={false}
           onClose={() => setWinner(null)} 
         />
       )}
 
       <footer className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 opacity-70 text-[9px] md:text-[11px] text-center w-full px-4 leading-relaxed font-bold tracking-wide pointer-events-none drop-shadow-md">
-        Bản quyền ứng dụng @2025@ của thầy Nguyễn Đức Duy- Giáo viên trường TH Nguyễn Bỉnh Khiêm
+        Bản quyền ứng dụng @2025@ của thầy Nguyễn Đức Duy - Giáo viên trường TH Nguyễn Bỉnh Khiêm
       </footer>
     </div>
   );
