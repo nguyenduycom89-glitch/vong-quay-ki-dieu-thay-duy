@@ -5,7 +5,7 @@ import Wheel from './components/Wheel';
 import ControlPanel from './components/ControlPanel';
 import WinnerModal from './components/WinnerModal';
 
-// 🎵 Tải âm thanh từ biến môi trường
+// 🎵 Tải âm thanh từ biến môi trường — thầy có thể thay URL bất kỳ lúc nào
 const SOUND_QUAY_URL = import.meta.env.VITE_SOUND_QUAY || 'https://tiengdong.com/tieng-quay-banh-xe-may-man-chiec-non-ky-dieu.mp3';
 const SOUND_WIN_URL = import.meta.env.VITE_SOUND_WIN || 'https://tiengdong.com/tieng-chuc-mung.mp3';
 
@@ -38,18 +38,26 @@ const App: React.FC = () => {
     spinBgmRef.current = audioQuay;
     winBgmRef.current = audioWin;
 
-    // Khi quay bắt đầu
+    // Khi quay bắt đầu — phát âm thanh nền
     const handleSpinStart = () => {
-      if (audioQuay.readyState === 4) {
-        audioQuay.currentTime = 0;
-        audioQuay.play().catch(() => {});
+      if (remainingStudents.length === 0) {
+        alert("Đã hết học sinh để quay! Vui lòng đặt lại danh sách.");
+        return;
+      }
+      setWinner(null);
+      setPraiseMessage("");
+      setIsSpinning(true);
+
+      if (spinBgmRef.current && spinBgmRef.current.readyState === 4) {
+        spinBgmRef.current.currentTime = 0;
+        spinBgmRef.current.play().catch(() => {});
       }
     };
 
-    // Khi quay xong
+    // Khi quay xong — tắt âm thanh nền, phát âm thanh chúc mừng
     const handleSpinEnd = (winningId: string) => {
-      if (audioQuay) {
-        audioQuay.pause();
+      if (spinBgmRef.current) {
+        spinBgmRef.current.pause(); // ✅ TẮT ÂM THANH NỀN KHI NGỪNG QUAY
       }
 
       const winStudent = students.find(s => s.id === winningId);
@@ -57,6 +65,13 @@ const App: React.FC = () => {
         setWinner(winStudent);
         setRemainingStudents(prev => prev.filter(s => s.id !== winningId));
 
+        // 🎉 Phát âm thanh chúc mừng
+        if (winBgmRef.current && winBgmRef.current.readyState === 4) {
+          winBgmRef.current.currentTime = 0;
+          winBgmRef.current.play().catch(() => {});
+        }
+
+        // 📝 Lời khen ngẫu nhiên — không cần AI
         const praises = [
           `Chúc mừng ${winStudent.name}! Em đã rất nỗ lực, xứng đáng là ngôi sao sáng của lớp!`,
           `Tuyệt vời, ${winStudent.name}! Em chính là chiến binh kiến thức hôm nay!`,
@@ -66,15 +81,9 @@ const App: React.FC = () => {
         ];
         const randomPraise = praises[Math.floor(Math.random() * praises.length)];
         setPraiseMessage(randomPraise);
-
-        // ✅ Phát âm thanh khi trúng thưởng
-        if (winBgmRef.current && winBgmRef.current.readyState === 4) {
-          winBgmRef.current.currentTime = 0;
-          winBgmRef.current.play().catch(() => {});
-        }
       }
 
-      setIsSpinning(false);
+      setIsSpinning(false); // ✅ Đảm bảo luôn tắt trạng thái quay
     };
 
     // Gắn sự kiện vào nút quay
